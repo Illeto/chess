@@ -18,10 +18,11 @@ import time
 import urllib.error
 import urllib.request
 import zipfile
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import DefaultDict, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import chess
 import chess.engine
@@ -35,6 +36,7 @@ STOCKFISH_LATEST_RELEASE_URL = (
     "https://api.github.com/repos/official-stockfish/Stockfish/releases/latest"
 )
 MATE_SCORE = 100_000
+SCRIPT_DIR = Path(__file__).resolve().parent
 
 
 @dataclass
@@ -349,7 +351,7 @@ def install_engine(args: argparse.Namespace) -> None:
     extract_dir.mkdir(parents=True, exist_ok=True)
     if archive_path.suffix == ".zip":
         with zipfile.ZipFile(archive_path) as zf:
-            zf.extractall(extract_dir)
+            safe_extract_zip(zf, extract_dir)
     else:
         with tarfile.open(archive_path) as tf:
             safe_extract_tar(tf, extract_dir)
@@ -487,15 +489,24 @@ def resolve_engine(explicit: Optional[Path]) -> Path:
     if which:
         return Path(which).resolve()
 
-    local = find_local_engine(Path("engines/stockfish").resolve())
-    if local:
-        return local.resolve()
+    for root in local_engine_roots():
+        local = find_local_engine(root)
+        if local:
+            return local.resolve()
 
     raise UserFacingError(
         "No Stockfish CLI binary found. Run:\n"
         "  python3 blunder_lab.py install-engine\n"
         "Then run analyze again, or pass --engine /path/to/stockfish."
     )
+
+
+def local_engine_roots() -> List[Path]:
+    roots = [Path("engines/stockfish").resolve()]
+    script_root = (SCRIPT_DIR / "engines/stockfish").resolve()
+    if script_root not in roots:
+        roots.append(script_root)
+    return roots
 
 
 def find_local_engine(root: Path) -> Optional[Path]:
@@ -691,6 +702,15 @@ def safe_extract_tar(archive: tarfile.TarFile, dest: Path) -> None:
         target = (dest / member.name).resolve()
         if not str(target).startswith(str(dest) + os.sep):
             raise UserFacingError(f"Refusing unsafe tar path: {member.name}")
+    archive.extractall(dest)
+
+
+def safe_extract_zip(archive: zipfile.ZipFile, dest: Path) -> None:
+    dest = dest.resolve()
+    for member in archive.infolist():
+        target = (dest / member.filename).resolve()
+        if not str(target).startswith(str(dest) + os.sep):
+            raise UserFacingError(f"Refusing unsafe zip path: {member.filename}")
     archive.extractall(dest)
 
 
@@ -1060,6 +1080,112 @@ def write_puzzles_pgn(puzzles: Sequence[MoveFinding], output_path: Path) -> None
             handle.write("\n\n")
 
 
+def study_focus_lines(
+    findings: Sequence[MoveFinding],
+    puzzles: Sequence[MoveFinding],
+    settings: AnalysisSettings,
+) -> List[str]:
+    if not findings:
+        return []
+
+    lines = [
+        "## Study Focus",
+        "",
+        (
+            "- Puzzle filter: positions are included when the missed move lost at "
+            f"least {format_loss(settings.puzzle_min_loss_cp)} pawns and the best "
+            f"move kept the eval at {format_cp(settings.puzzle_min_eval_cp)} or better."
+        ),
+    ]
+
+    themes = Counter()
+    for finding in findings:
+        themes.update(split_themes(finding.theme))
+    if themes:
+        formatted = ", ".join(
+            f"{theme} ({count})" for theme, count in themes.most_common(5)
+        )
+        lines.append(f"- Most repeated themes: {formatted}.")
+
+    game_rows = summarize_games(findings, puzzles)
+    if game_rows:
+        lines.append("- Games to review first:")
+        for row in game_rows[:5]:
+            label = f"{row['date']} {row['white']} vs {row['black']}"
+            counts = (
+                f"{row['findings']} finding(s), {row['blunders']} blunder(s), "
+                f"{row['puzzles']} puzzle(s)"
+            )
+            if row["url"]:
+                lines.append(f"  - {label}: {counts} - {row['url']}")
+            else:
+                lines.append(f"  - {label}: {counts}")
+
+    lines.append("")
+    return lines
+
+
+def split_themes(theme: str) -> List[str]:
+    parts = [part.strip() for part in theme.split(",") if part.strip()]
+    return parts or ["best move"]
+
+
+def summarize_games(
+    findings: Sequence[MoveFinding], puzzles: Sequence[MoveFinding]
+) -> List[Dict[str, object]]:
+    rows: DefaultDict[Tuple[int, str, str, str, str], Dict[str, object]] = defaultdict(
+        lambda: {
+            "findings": 0,
+            "blunders": 0,
+            "mistakes": 0,
+            "inaccuracies": 0,
+            "puzzles": 0,
+            "date": "",
+            "white": "",
+            "black": "",
+            "url": "",
+        }
+    )
+
+    for finding in findings:
+        row = rows[game_key(finding)]
+        row["date"] = finding.game_date
+        row["white"] = finding.white
+        row["black"] = finding.black
+        row["url"] = finding.url
+        row["findings"] = int(row["findings"]) + 1
+        if finding.kind == "blunder":
+            row["blunders"] = int(row["blunders"]) + 1
+        elif finding.kind == "mistake":
+            row["mistakes"] = int(row["mistakes"]) + 1
+        elif finding.kind == "inaccuracy":
+            row["inaccuracies"] = int(row["inaccuracies"]) + 1
+
+    for puzzle in puzzles:
+        rows[game_key(puzzle)]["puzzles"] = int(rows[game_key(puzzle)]["puzzles"]) + 1
+
+    return sorted(
+        rows.values(),
+        key=lambda row: (
+            int(row["blunders"]),
+            int(row["mistakes"]),
+            int(row["findings"]),
+            int(row["puzzles"]),
+        ),
+        reverse=True,
+    )
+
+
+def game_key(finding: MoveFinding) -> Tuple[int, str, str, str, str]:
+    return (
+        finding.game_index,
+        finding.game_date,
+        finding.white,
+        finding.black,
+        finding.url,
+    )
+
+
 def write_report(
     settings: AnalysisSettings,
     games: Sequence[GameSource],
@@ -1089,9 +1215,10 @@ def write_report(
         f"- Blunders: {counts.get('blunder', 0)}",
         f"- Training puzzles: {len(puzzles)}",
         "",
-        "## Top Findings",
-        "",
     ]
+
+    lines.extend(study_focus_lines(findings, puzzles, settings))
+    lines.extend(["## Top Findings", ""])
 
     top = sorted(findings, key=lambda item: item.loss_cp, reverse=True)[:25]
     if not top:
@@ -1237,7 +1364,7 @@ def solve_one(
     pv_san = (row.get("pv_san") or "").strip() or best_san
     theme = (row.get("theme") or "").strip()
 
-    print(f"Puzzle {index}/{total}  —  you are {color_name}, to move")
+    print(f"Puzzle {index}/{total} - you are {color_name}, to move")
     print(render_board(board, user_color))
     if theme and theme != "best move":
         print(f"Theme: {theme}")
@@ -1266,8 +1393,8 @@ def solve_one(
 
     your_san = safe_san(board, move)
     correct, detail = grade_move(board, move, best_uci, engine, limit, accept_cp)
-    mark = "✓" if correct else "✗"
-    print(f"  {mark} {your_san} — {detail}")
+    mark = "OK" if correct else "NO"
+    print(f"  [{mark}] {your_san} - {detail}")
     if not correct or your_san != best_san:
         print(f"  Best: {best_san or best_uci}" + (f"  ({pv_san})" if pv_san else ""))
     print()
@@ -1304,7 +1431,7 @@ def grade_move(
     if loss <= accept_cp:
         if loss == 0:
             return True, "best play."
-        return True, f"strong — only {loss} cp from best."
+        return True, f"strong - only {loss} cp from best."
     return False, f"loses {loss_phrase(loss)} versus the best move."
 
 
@@ -1345,7 +1472,7 @@ def render_board(board: chess.Board, orientation: chess.Color) -> str:
     files = range(8) if orientation == chess.WHITE else range(7, -1, -1)
     lines = []
     for rank in ranks:
-        row = [f"{rank + 1} "]
+        row = [str(rank + 1)]
         for file in files:
             piece = board.piece_at(chess.square(file, rank))
             row.append(piece.symbol() if piece else ".")
@@ -1356,15 +1483,28 @@ def render_board(board: chess.Board, orientation: chess.Color) -> str:
 
 
 def latest_puzzles_csv(root: Path = Path("analysis")) -> Optional[Path]:
-    root = root.expanduser()
-    if not root.exists():
-        return None
     candidates = sorted(
-        root.glob("*/puzzles.csv"),
+        (
+            path
+            for candidate_root in analysis_roots(root)
+            for path in candidate_root.glob("*/puzzles.csv")
+        ),
         key=lambda path: path.stat().st_mtime,
         reverse=True,
     )
     return candidates[0] if candidates else None
+
+
+def analysis_roots(root: Path) -> List[Path]:
+    expanded = root.expanduser()
+    if expanded.is_absolute():
+        return [expanded] if expanded.exists() else []
+
+    roots = [Path.cwd() / expanded]
+    script_root = SCRIPT_DIR / expanded
+    if script_root not in roots:
+        roots.append(script_root)
+    return [candidate for candidate in roots if candidate.exists()]
 
 
 def load_puzzle_rows(path: Path) -> List[Dict[str, str]]:

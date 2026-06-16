@@ -66,7 +66,7 @@ python3 blunder_lab.py analyze --username your-username --pgn my_games.pgn
 
 Replay the puzzles from your most recent analysis run, right in the terminal.
 The board is drawn from your side, you type a move in SAN (`Nf3`) or UCI
-(`g1f3`), and the engine grades it — so a strong alternative still counts, not
+(`g1f3`), and the engine grades it, so a strong alternative still counts, not
 only the single top move.
 
 ```bash
@@ -100,6 +100,10 @@ Inside it:
 - `puzzles.pgn` contains puzzle positions with the engine PV.
 - `raw_games.pgn` stores the analyzed games.
 
+`report.md` also includes a Study Focus section that summarizes repeated
+themes and the games worth reviewing first. Start there when you want a quick
+answer to "what pattern keeps costing me games?"
+
 ## Useful Thresholds
 
 Defaults are intentionally beginner-friendly:
@@ -132,3 +136,18 @@ At roughly 500 Elo, the best study loop is usually:
 2. Replay the top 5 positions.
 3. For each one, ask: "Was there a check, capture, or direct threat?"
 4. Drill `puzzles.csv` until the best moves look obvious.
+
+## Development
+
+Run the offline test suite:
+
+```bash
+python3 -m unittest discover -v
+```
+
+Run a quick end-to-end smoke test with your local engine:
+
+```bash
+python3 blunder_lab.py analyze --username your-username --max-games 2 --depth 6 --output-dir analysis/smoke
+printf 'quit\n' | python3 blunder_lab.py solve --puzzles analysis/smoke/puzzles.csv --no-engine --max 1
+```
