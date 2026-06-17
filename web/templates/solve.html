@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Solve · Chess Blunder Lab</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='board.css') }}">
+</head>
+<body data-run-id="{{ run_id }}">
+  <header class="topbar">
+    <h1><a href="/" class="back">←</a> Solve <span class="muted">{{ run_id }}</span></h1>
+    <a href="/run/{{ run_id }}/review" class="btn">Review →</a>
+  </header>
+
+  <main class="container two-col">
+    <section class="board-col">
+      <div id="board" class="board"></div>
+      <div id="promo" class="promo hidden"></div>
+    </section>
+
+    <section class="card info">
+      <h2 id="title">–</h2>
+      <p id="turn" class="muted">–</p>
+      <p>Theme: <span id="theme">–</span></p>
+      <div id="result" class="result hidden"></div>
+      <div class="actions">
+        <button id="hint" class="btn">Hint</button>
+        <button id="skip" class="btn">Skip</button>
+        <button id="next" class="btn primary hidden">Next ▶</button>
+      </div>
+      <p class="score">Solved <span id="solved">0</span>/<span id="attempted">0</span>
+        · <span id="counter" class="muted">–</span></p>
+      <p id="done" class="muted hidden">All puzzles complete 🎉</p>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='solve.js') }}"></script>
+</body>
+</html>

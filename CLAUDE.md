@@ -17,6 +17,9 @@ python3 -m pip install -r requirements.txt   # only dep: python-chess
 python3 blunder_lab.py install-engine        # download official Stockfish into engines/stockfish/
 python3 blunder_lab.py analyze --username <chesscom_user>
 python3 blunder_lab.py solve                 # interactive trainer over the newest puzzles.csv
+
+python3 -m pip install -r requirements-web.txt   # optional: web GUI deps (Flask only)
+python3 blunder_lab.py gui                    # local browser GUI at 127.0.0.1:5000
 ```
 
 `--username` is a required argument; no personal handle is baked into the
@@ -37,8 +40,9 @@ printf 'quit\n' | python3 blunder_lab.py solve --no-engine   # smoke-test the so
 
 ## Architecture
 
-Everything lives in `blunder_lab.py` (~1400 lines), one module, three subcommands
-dispatched from `main()` to `build_parser()`. Logic is plain functions over three
+The CLI lives in `blunder_lab.py` (~1500 lines), one module, four subcommands
+(`install-engine`, `analyze`, `solve`, `gui`) dispatched from `main()` to
+`build_parser()`; the GUI implementation lives in the `web/` package. Logic is plain functions over three
 dataclasses: `AnalysisSettings` (run config), `GameSource` (a parsed game + its
 raw Chess.com JSON), and `MoveFinding` (one flagged move; also serves as a puzzle
 record). Errors meant for the user are raised as `UserFacingError` and printed
@@ -61,7 +65,10 @@ inaccuracy/mistake/blunder by centipawn thresholds. This is the standard
 "centipawn loss vs. best play" method; keep the point-of-view consistent if you
 touch it, or evals will silently invert. Mate is encoded as plus/minus `MATE_SCORE`
 (100000) and game-over positions are scored by `terminal_score` instead of the
-engine.
+engine. The engine loop + output writing are factored into
+`run_analysis(settings, sources, output_dir, progress_cb)` (phases analyzing →
+writing → done), shared by `analyze_command` and the GUI's background job; fetching
+games stays with each caller.
 
 **Puzzle selection**: a finding becomes a puzzle only when
 `loss_cp >= --puzzle-min-loss-cp` AND `eval_before >= --puzzle-min-eval-cp`
@@ -80,6 +87,19 @@ under `analysis/` by default), renders each board from the solver's side
 accepts any move within `--accept-cp` of best (so good alternatives count);
 with `--no-engine` it falls back to exact-match against the saved best move.
 
+**Web GUI** (`web/` package; `gui` subcommand lazy-imports Flask). `web/app.py`
+imports `blunder_lab` and is **server-authoritative**: legal moves and grading are
+scoped to a stored puzzle index (`/api/runs/<id>/puzzles/<i>/legal` and `/grade`)
+and load the FEN/best move from disk, so the browser never gets the answer before
+submitting. `web/jobs.py` runs analysis on a single background worker thread via
+`run_analysis`; `web/engine_pool.py` shares one lock-guarded Stockfish process for
+grading and recreates it on `EngineTerminatedError`. Review boards are
+server-rendered `chess.svg`; the solver uses a homemade HTML/CSS click board (no
+third-party assets). Run-id inputs are validated against `analysis_roots()` to
+reject path traversal. Web deps are isolated in `requirements-web.txt`. Tests live
+in `tests/test_web.py` (Flask `test_client`; the engine-backed grade test is
+guarded by engine availability).
+
 ## Outputs and conventions
 
 `analyze` writes a timestamped dir `analysis/<username>_<timestamp>/` containing
@@ -90,4 +110,6 @@ analysis output are local artifacts, not source. A working engine binary is
 present at `engines/stockfish/stockfish`; if it is missing, run `install-engine`.
 
 The tool needs network access for live Chess.com fetches and for `install-engine`;
-the `--pgn` and `solve` paths are fully offline.
+the `--pgn` and `solve` paths are fully offline. The GUI needs Flask
+(`requirements-web.txt`), binds to `127.0.0.1`, serves no third-party assets, and
+is offline except for the live-analysis form (which fetches from Chess.com).

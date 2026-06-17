@@ -22,7 +22,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import DefaultDict, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Callable, DefaultDict, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import chess
 import chess.engine
@@ -104,6 +104,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             return 0
         if args.command == "solve":
             solve_command(args)
+            return 0
+        if args.command == "gui":
+            gui_command(args)
             return 0
     except KeyboardInterrupt:
         print("\nInterrupted.", file=sys.stderr)
@@ -313,6 +316,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="shuffle the puzzle order",
     )
 
+    gui = subparsers.add_parser(
+        "gui",
+        help="launch the local web GUI (review blunders and solve in a browser)",
+    )
+    gui.add_argument("--host", default="127.0.0.1", help="bind host (default: 127.0.0.1)")
+    gui.add_argument("--port", type=int, default=5000, help="bind port (default: 5000)")
+    gui.add_argument(
+        "--no-open",
+        action="store_true",
+        help="do not open a browser window automatically",
+    )
+
     return parser
 
 
@@ -425,15 +440,43 @@ def analyze_command(args: argparse.Namespace) -> None:
         raise UserFacingError("No games matched the requested filters.")
 
     print(f"Analyzing {len(games)} game(s) with {engine_path}...")
-    started = time.time()
+
+    def cli_progress(phase: str, done: int, total: int, label: str) -> None:
+        if phase == "analyzing":
+            print(f"  {done:>3}/{total} {label}")
+
+    run_analysis(settings, games, output_dir, progress_cb=cli_progress)
+
+    print()
+    print(f"Report:  {output_dir / 'report.md'}")
+    print(f"CSV:     {output_dir / 'blunders.csv'}")
+    print(f"Puzzles: {output_dir / 'puzzles.csv'}")
+    print(f"PGN:     {output_dir / 'puzzles.pgn'}")
+
+
+def run_analysis(
+    settings: AnalysisSettings,
+    sources: Sequence[GameSource],
+    output_dir: Path,
+    progress_cb: Optional[Callable[[str, int, int, str], None]] = None,
+) -> Tuple[List[MoveFinding], List[MoveFinding]]:
+    """Run the engine over already-fetched games and write all analysis outputs.
+
+    ``progress_cb(phase, done, total, label)`` is called with phase in
+    {"analyzing", "writing", "done"}. Fetching games and writing raw_games.pgn
+    are the caller's responsibility (they differ between the CLI and the GUI).
+    Opens its own engine process, so callers can run several concurrently.
+    """
     findings: List[MoveFinding] = []
     puzzles: List[MoveFinding] = []
+    started = time.time()
+    total = len(sources)
 
     try:
-        with chess.engine.SimpleEngine.popen_uci(str(engine_path)) as engine:
+        with chess.engine.SimpleEngine.popen_uci(str(settings.engine_path)) as engine:
             configure_engine(engine, settings)
             limit = engine_limit(settings)
-            for index, source in enumerate(games, start=1):
+            for index, source in enumerate(sources, start=1):
                 game_findings, game_puzzles = analyze_game(
                     source=source,
                     game_index=index,
@@ -443,33 +486,35 @@ def analyze_command(args: argparse.Namespace) -> None:
                 )
                 findings.extend(game_findings)
                 puzzles.extend(game_puzzles)
-                print(
-                    f"  {index:>3}/{len(games)} "
-                    f"{game_label(source.game)}: "
-                    f"{len(game_findings)} finding(s), {len(game_puzzles)} puzzle(s)"
-                )
+                if progress_cb is not None:
+                    progress_cb(
+                        "analyzing",
+                        index,
+                        total,
+                        f"{game_label(source.game)}: "
+                        f"{len(game_findings)} finding(s), {len(game_puzzles)} puzzle(s)",
+                    )
     except chess.engine.EngineError as exc:
         raise UserFacingError(f"Engine error: {exc}") from exc
     except FileNotFoundError as exc:
-        raise UserFacingError(f"Engine not found: {engine_path}") from exc
+        raise UserFacingError(f"Engine not found: {settings.engine_path}") from exc
 
+    if progress_cb is not None:
+        progress_cb("writing", total, total, "writing outputs")
     write_findings_csv(findings, output_dir / "blunders.csv")
     write_findings_csv(puzzles, output_dir / "puzzles.csv")
     write_puzzles_pgn(puzzles, output_dir / "puzzles.pgn")
     write_report(
         settings=settings,
-        games=games,
+        games=sources,
         findings=findings,
         puzzles=puzzles,
         elapsed_seconds=time.time() - started,
         output_path=output_dir / "report.md",
     )
-
-    print()
-    print(f"Report:  {output_dir / 'report.md'}")
-    print(f"CSV:     {output_dir / 'blunders.csv'}")
-    print(f"Puzzles: {output_dir / 'puzzles.csv'}")
-    print(f"PGN:     {output_dir / 'puzzles.pgn'}")
+    if progress_cb is not None:
+        progress_cb("done", total, total, "done")
+    return findings, puzzles
 
 
 def resolve_engine(explicit: Optional[Path]) -> Path:
@@ -1275,6 +1320,32 @@ def limit_description(settings: AnalysisSettings) -> str:
 def default_output_dir(username: str) -> Path:
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     return Path("analysis") / f"{username}_{stamp}"
+
+
+def gui_command(args: argparse.Namespace) -> None:
+    try:
+        import flask  # noqa: F401
+    except ImportError as exc:
+        raise UserFacingError(
+            "The GUI needs Flask. Install the web dependencies with:\n"
+            "  python3 -m pip install -r requirements-web.txt"
+        ) from exc
+
+    from web import engine_pool
+    from web.app import create_app
+
+    app = create_app()
+    url = f"http://{args.host}:{args.port}"
+    if not args.no_open:
+        import threading
+        import webbrowser
+
+        threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+    print(f"Chess Blunder Lab GUI running at {url}  (press Ctrl-C to stop)")
+    try:
+        app.run(host=args.host, port=args.port, use_reloader=False, threaded=True)
+    finally:
+        engine_pool.close()
 
 
 def solve_command(args: argparse.Namespace) -> None:

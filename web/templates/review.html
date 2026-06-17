@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Review · Chess Blunder Lab</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body data-run-id="{{ run_id }}">
+  <header class="topbar">
+    <h1><a href="/" class="back">←</a> Review <span class="muted">{{ run_id }}</span></h1>
+    <a href="/run/{{ run_id }}/solve" class="btn">Solve →</a>
+  </header>
+
+  <main class="container two-col">
+    <section class="board-col">
+      <div id="board">loading…</div>
+      <div class="nav">
+        <button id="prev" class="btn">◀ Prev</button>
+        <span id="counter" class="muted">–</span>
+        <button id="next" class="btn">Next ▶</button>
+      </div>
+    </section>
+
+    <section class="card info">
+      <h2 id="title">–</h2>
+      <dl class="kv">
+        <dt>Your move</dt><dd id="your-move">–</dd>
+        <dt>Best move</dt><dd id="best-move">–</dd>
+        <dt>Eval</dt><dd id="eval">–</dd>
+        <dt>Loss</dt><dd id="loss">–</dd>
+        <dt>Best line</dt><dd id="pv">–</dd>
+        <dt>Theme</dt><dd id="theme">–</dd>
+      </dl>
+      <p><a id="game-link" href="#" target="_blank" rel="noopener" class="hidden">View game on Chess.com ↗</a></p>
+      <p class="legend"><span class="dot green"></span> best move &nbsp; <span class="dot red"></span> your move</p>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='review.js') }}"></script>
+</body>
+</html>

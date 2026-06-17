@@ -1,0 +1,3 @@
+# Optional dependencies for the local web GUI (python3 blunder_lab.py gui).
+# The core CLI needs only requirements.txt (python-chess).
+Flask>=3.0

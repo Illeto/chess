@@ -137,9 +137,33 @@ At roughly 500 Elo, the best study loop is usually:
 3. For each one, ask: "Was there a check, capture, or direct threat?"
 4. Drill `puzzles.csv` until the best moves look obvious.
 
+## Web GUI (optional)
+
+A local browser GUI wraps the same engine and analysis code. It is optional and
+keeps its dependencies separate, so the core CLI still needs only `python-chess`.
+
+```bash
+python3 -m pip install -r requirements-web.txt
+python3 blunder_lab.py gui
+```
+
+This serves `http://127.0.0.1:5000` and opens your browser (use `--no-open`,
+`--host`, `--port` to change that). From there you can:
+
+- **Run an analysis** from a form (username, months, max games, time class, depth)
+  with a live progress bar — the run is written to `analysis/` like any CLI run.
+- **Review blunders** on a real board, with the engine's best move (green arrow)
+  versus your move (red arrow), the eval swing, and a link back to the game.
+- **Solve** the run's puzzles on a click-to-move board; Stockfish grades each move
+  (good alternatives count), with hint, skip, and a running score.
+
+It runs entirely on localhost, offline, with no third-party board assets. The
+server is authoritative: puzzle answers are never sent to the browser before you
+submit a move.
+
 ## Development
 
-Run the offline test suite:
+Run the offline test suite (includes the web tests):
 
 ```bash
 python3 -m unittest discover -v
