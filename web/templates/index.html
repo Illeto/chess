@@ -8,7 +8,7 @@
 </head>
 <body>
   <header class="topbar">
-    <h1>Chess Blunder Lab</h1>
+    <h1><span class="logo">♟</span> Chess Blunder Lab</h1>
     <span id="engine-status" class="engine">checking engine…</span>
   </header>
 
@@ -17,9 +17,9 @@
       <h2>New analysis</h2>
       <form id="analyze-form" class="form-grid" autocomplete="off">
         <label>Chess.com username
-          <input name="username" type="text" placeholder="e.g. your-username" required>
+          <input name="username" type="text" placeholder="e.g. hikaru" required>
         </label>
-        <label>Months
+        <label>Months back
           <input name="months" type="number" value="3" min="1" max="24">
         </label>
         <label>Max games
@@ -27,27 +27,27 @@
         </label>
         <label>Time class
           <select name="time_class">
-            <option value="">any</option>
-            <option value="rapid">rapid</option>
-            <option value="blitz">blitz</option>
-            <option value="bullet">bullet</option>
-            <option value="daily">daily</option>
+            <option value="">Any</option>
+            <option value="rapid">Rapid</option>
+            <option value="blitz">Blitz</option>
+            <option value="bullet">Bullet</option>
+            <option value="daily">Daily</option>
           </select>
         </label>
-        <label>Depth
+        <label>Engine depth
           <input name="depth" type="number" value="10" min="4" max="20">
         </label>
-        <button type="submit" class="btn primary">Analyze</button>
+        <button type="submit" class="btn primary">Analyze games →</button>
       </form>
       <div id="job" class="job hidden">
-        <div class="job-phase"><span id="job-phase">queued</span> <span id="job-label" class="muted"></span></div>
+        <div class="job-phase"><span id="job-phase">Queued</span> <span id="job-label" class="muted"></span></div>
         <div class="bar"><div id="job-bar" class="bar-fill"></div></div>
         <div id="job-error" class="error hidden"></div>
       </div>
     </section>
 
     <section class="card">
-      <h2>Your runs</h2>
+      <h2>Past runs</h2>
       <div id="runs" class="runs">loading…</div>
     </section>
   </main>

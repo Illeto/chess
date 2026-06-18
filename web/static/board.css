@@ -1,9 +1,9 @@
-/* Same palette and pieces as the server-rendered /review board (python-chess). */
-.cm-board { width: 100%; max-width: 460px; }
+/* Custom HTML chess board (solve page fallback + standalone use) */
+.cm-board { width: 100%; max-width: 480px; }
 
 .board {
   width: 100%;
-  max-width: 460px;
+  max-width: 480px;
   aspect-ratio: 1 / 1;
   display: grid;
   grid-template-columns: repeat(8, 1fr);
@@ -14,15 +14,18 @@
   touch-action: none;
   user-select: none;
 }
+
 .sq {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.sq.light { background: #ffce9e; }
-.sq.dark  { background: #d18b47; }
+/* Classic Lichess board colors */
+.sq.light { background: #f0d9b5; }
+.sq.dark  { background: #b58863; }
 .sq.has-move { cursor: grab; }
+
 .sq.sel::before {
   content: "";
   position: absolute;
@@ -34,11 +37,11 @@
 .piece-img {
   width: 100%;
   height: 100%;
-  pointer-events: none;          /* pointer logic lives on the .sq cells */
+  pointer-events: none;
   -webkit-user-drag: none;
   user-select: none;
 }
-.piece-img.drag-src { opacity: 0.25; }
+.piece-img.drag-src { opacity: 0.2; }
 
 .sq.target::after {
   content: "";
@@ -58,7 +61,7 @@
   border-radius: 50%;
 }
 
-/* Floating piece that follows the cursor while dragging. */
+/* Floating piece while dragging */
 .ghost {
   position: fixed;
   z-index: 1000;
@@ -67,28 +70,32 @@
 }
 .ghost img { width: 100%; height: 100%; }
 
+/* Pawn promotion picker */
 .promo {
   display: flex;
   gap: 6px;
   justify-content: center;
-  padding: 8px;
-  margin-top: 8px;
-  background: var(--card);
+  padding: 10px;
+  margin-top: 10px;
+  background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow);
 }
 .promo button {
-  width: 52px;
-  height: 52px;
+  width: 54px;
+  height: 54px;
   padding: 4px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: #f0d9b5;
   cursor: pointer;
+  transition: transform .1s;
 }
+.promo button:hover { transform: scale(1.08); }
 .promo img { width: 100%; height: 100%; }
 
-/* File/rank labels on the edge squares. */
+/* File/rank coordinate labels */
 .coord {
   position: absolute;
   font-size: 10px;
@@ -100,4 +107,4 @@
 .coord.rank { top: 2px; left: 3px; }
 .coord.file { bottom: 1px; right: 3px; }
 .sq.light .coord { color: #b58863; }
-.sq.dark .coord { color: #eccfa6; }
+.sq.dark  .coord { color: #f0d9b5; }
