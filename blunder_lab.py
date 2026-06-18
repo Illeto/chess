@@ -28,6 +28,10 @@ import chess
 import chess.engine
 import chess.pgn
 
+from blab import classify
+from blab import profile as error_profile
+from blab import puzzledb
+
 
 APP_NAME = "chess-blunder-lab"
 USER_AGENT = f"{APP_NAME}/0.1 (local personal analysis tool)"
@@ -89,6 +93,9 @@ class MoveFinding:
     pv_san: str
     pv_uci: str
     theme: str
+    category: str = ""
+    motifs: str = ""
+    phase: str = ""
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -107,6 +114,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             return 0
         if args.command == "gui":
             gui_command(args)
+            return 0
+        if args.command == "install-puzzles":
+            install_puzzles_command(args)
             return 0
     except KeyboardInterrupt:
         print("\nInterrupted.", file=sys.stderr)
@@ -326,6 +336,23 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-open",
         action="store_true",
         help="do not open a browser window automatically",
+    )
+
+    puzzles = subparsers.add_parser(
+        "install-puzzles",
+        help="download + build the local Lichess puzzle DB for lesson top-ups",
+    )
+    puzzles.add_argument(
+        "--max-rating",
+        type=int,
+        default=puzzledb.DEFAULT_MAX_RATING,
+        help=f"keep puzzles rated <= this (default: {puzzledb.DEFAULT_MAX_RATING})",
+    )
+    puzzles.add_argument(
+        "--db",
+        type=Path,
+        default=None,
+        help="output SQLite path (default: data/puzzles.sqlite)",
     )
 
     return parser
@@ -854,16 +881,32 @@ def analyze_game(
         best_move_san = before_board.san(best_move)
 
         board.push(move)
+        after_board = board.copy(stack=False)
+        after_pv: List[chess.Move] = []
         terminal = terminal_score(board, moving_color)
         if terminal:
             after_cp, after_text = terminal
         else:
             after_info = engine.analyse(board, limit)
             after_cp, after_text = score_for_color(after_info, moving_color)
+            after_pv = pv_from_info(after_info, settings.max_pv_moves)
         loss_cp = max(0, before_cp - after_cp)
         kind = classify_loss(loss_cp, settings)
         if not kind:
             continue
+
+        category, motif_list, phase = classify.classify_finding(
+            before_board=before_board,
+            your_move=move,
+            best_move=best_move,
+            before_pv=pv_moves,
+            after_board=after_board,
+            after_pv=after_pv,
+            eval_before_cp=before_cp,
+            eval_after_cp=after_cp,
+            user_color=moving_color,
+            move_number=before_board.fullmove_number,
+        )
 
         finding = MoveFinding(
             kind=kind,
@@ -890,6 +933,9 @@ def analyze_game(
             pv_san=pv_san,
             pv_uci=pv_uci,
             theme=detect_theme(before_board, best_move, before_info),
+            category=category,
+            motifs=", ".join(motif_list),
+            phase=phase,
         )
         findings.append(finding)
 
@@ -1083,6 +1129,9 @@ def write_findings_csv(findings: Sequence[MoveFinding], output_path: Path) -> No
         "pv_san",
         "pv_uci",
         "theme",
+        "category",
+        "motifs",
+        "phase",
     ]
     with output_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -1262,6 +1311,16 @@ def write_report(
         "",
     ]
 
+    profile = error_profile.build_error_profile(
+        {
+            "category": f.category,
+            "motifs": f.motifs,
+            "phase": f.phase,
+            "loss_cp": f.loss_cp,
+        }
+        for f in findings
+    )
+    lines.extend(error_profile.format_profile_lines(profile))
     lines.extend(study_focus_lines(findings, puzzles, settings))
     lines.extend(["## Top Findings", ""])
 
@@ -1346,6 +1405,28 @@ def gui_command(args: argparse.Namespace) -> None:
         app.run(host=args.host, port=args.port, use_reloader=False, threaded=True)
     finally:
         engine_pool.close()
+
+
+def install_puzzles_command(args: argparse.Namespace) -> None:
+    try:
+        import zstandard  # noqa: F401
+    except ImportError as exc:
+        raise UserFacingError(
+            "install-puzzles needs zstandard. Install it with:\n"
+            "  python3 -m pip install -r requirements-lessons.txt"
+        ) from exc
+
+    db_path = (args.db or puzzledb.default_db_path()).expanduser()
+    print(f"Building Lichess puzzle DB (rating <= {args.max_rating}) at {db_path}")
+    print("Streaming ~250 MB from database.lichess.org; this can take a few minutes...")
+
+    def progress(scanned: int, kept: int) -> None:
+        print(f"  scanned {scanned:,}  kept {kept:,}", flush=True)
+
+    kept = puzzledb.download_and_build(
+        db_path=db_path, max_rating=args.max_rating, progress_cb=progress
+    )
+    print(f"Done. Kept {kept:,} puzzles -> {db_path}")
 
 
 def solve_command(args: argparse.Namespace) -> None:

@@ -24,8 +24,9 @@ async function loadRuns() {
         `<div class="meta"><b>${esc(r.username)}</b> <span class="muted">${esc(r.stamp)}</span>` +
         `<div class="counts">${r.blunder} blunders · ${r.mistake} mistakes · ${r.inaccuracy} inaccuracies · ${r.puzzles} puzzles</div></div>` +
         `<div class="links">` +
+        `<a class="btn primary" href="/run/${encodeURIComponent(r.id)}/profile">Profile</a>` +
         `<a class="btn" href="/run/${encodeURIComponent(r.id)}/review">Review</a>` +
-        `<a class="btn primary" href="/run/${encodeURIComponent(r.id)}/solve">Solve</a></div>`;
+        `<a class="btn" href="/run/${encodeURIComponent(r.id)}/solve">Solve</a></div>`;
       box.appendChild(div);
     }
   } catch { box.innerHTML = '<p class="error">Could not load runs.</p>'; }

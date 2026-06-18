@@ -1,4 +1,6 @@
 /* Same palette and pieces as the server-rendered /review board (python-chess). */
+.cm-board { width: 100%; max-width: 460px; }
+
 .board {
   width: 100%;
   max-width: 460px;
@@ -85,3 +87,17 @@
   cursor: pointer;
 }
 .promo img { width: 100%; height: 100%; }
+
+/* File/rank labels on the edge squares. */
+.coord {
+  position: absolute;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  opacity: 0.9;
+}
+.coord.rank { top: 2px; left: 3px; }
+.coord.file { bottom: 1px; right: 3px; }
+.sq.light .coord { color: #b58863; }
+.sq.dark .coord { color: #eccfa6; }

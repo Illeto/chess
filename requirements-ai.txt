@@ -1,0 +1,4 @@
+# Optional dependency for AI-written lesson explanations (default provider: Anthropic).
+# Without this (or without ANTHROPIC_API_KEY), the tool falls back to built-in
+# template explanations. The local "ollama" provider needs no Python dependency.
+anthropic>=0.40

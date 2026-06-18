@@ -1,0 +1,4 @@
+# Optional dependency for `install-puzzles` (building the local Lichess puzzle DB).
+# Only needed to download/decompress the puzzle database; the rest of the tool
+# does not require it.
+zstandard>=0.22

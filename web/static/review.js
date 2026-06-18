@@ -23,6 +23,8 @@ async function show(i) {
   $("#board").innerHTML = f.svg || "";
   const dots = f.user_color === "White" ? "." : "...";
   $("#title").textContent = `${cap(f.kind)} on ${f.move_number}${dots} ${f.your_move_san}`;
+  const noteEl = $("#note");
+  noteEl.textContent = f.note ? (f.note_source === "ai" ? "🧠 " : "") + f.note : "";
   $("#your-move").textContent = f.your_move_san || "–";
   $("#best-move").textContent = f.best_move_san || "–";
   $("#eval").textContent = `${f.eval_before} → ${f.eval_after}`;

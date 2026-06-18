@@ -109,6 +109,47 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(detail["best_move_san"], "Ra8#")
         self.assertTrue(detail["svg"].startswith("<svg"))
 
+    def test_profile_endpoint(self) -> None:
+        prof = self.client.get(f"/api/runs/{self.run_id}/profile").get_json()["profile"]
+        self.assertEqual(len(prof), 1)
+        self.assertEqual(prof[0]["count"], 1)
+        self.assertEqual(self.client.get(f"/run/{self.run_id}/profile").status_code, 200)
+
+    def test_db_puzzle_endpoints(self) -> None:
+        from blab import puzzledb
+
+        db = Path(tempfile.mkdtemp()) / "p.sqlite"
+        puzzledb.build_from_rows(
+            db,
+            [["dbz", "4k3/8/8/8/8/8/4q3/4K2R b - - 0 1", "e2c4 h1h8", "800", "0", "0", "0", "fork", "u", ""]],
+        )
+        original = puzzledb.default_db_path
+        puzzledb.default_db_path = lambda: db
+        try:
+            legal = self.client.get("/api/db/puzzles/dbz/legal").get_json()
+            self.assertEqual(legal["side"], "white")
+            self.assertIn("h1h8", legal["legal"])
+            self.assertEqual(self.client.get("/api/db/puzzles/missing/legal").status_code, 404)
+        finally:
+            puzzledb.default_db_path = original
+
+    def test_line_endpoint(self) -> None:
+        line = self.client.get(f"/api/runs/{self.run_id}/puzzles/0/line").get_json()
+        self.assertTrue(line["start_fen"])
+        self.assertEqual(line["steps"][0]["san"], "Ra8#")
+
+    def test_lesson_endpoint(self) -> None:
+        self.assertEqual(
+            self.client.get(f"/api/runs/{self.run_id}/lessons/not_a_category").status_code,
+            404,
+        )
+        lesson = self.client.get(
+            f"/api/runs/{self.run_id}/lessons/positional_other"
+        ).get_json()
+        self.assertIn("concept", lesson)
+        self.assertIn("fix", lesson["concept"])
+        self.assertEqual(lesson["count"], 1)
+
     def test_legal_is_puzzle_scoped(self) -> None:
         legal = self.client.get(f"/api/runs/{self.run_id}/puzzles/0/legal").get_json()
         self.assertEqual(legal["side"], "white")

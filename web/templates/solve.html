@@ -6,6 +6,9 @@
   <title>Solve · Chess Blunder Lab</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='board.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/cm-chessboard/assets/chessboard.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/cm-chessboard/assets/extensions/markers/markers.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/cm-chessboard/assets/extensions/promotion-dialog/promotion-dialog.css') }}">
 </head>
 <body data-run-id="{{ run_id }}">
   <header class="topbar">
@@ -13,10 +16,11 @@
     <a href="/run/{{ run_id }}/review" class="btn">Review →</a>
   </header>
 
+  <div class="container"><div id="concept" class="card hidden"></div></div>
+
   <main class="container two-col">
     <section class="board-col">
-      <div id="board" class="board"></div>
-      <div id="promo" class="promo hidden"></div>
+      <div id="board" class="cm-board"></div>
     </section>
 
     <section class="card info">
@@ -35,6 +39,6 @@
     </section>
   </main>
 
-  <script src="{{ url_for('static', filename='solve.js') }}"></script>
+  <script type="module" src="{{ url_for('static', filename='solve.js') }}"></script>
 </body>
 </html>

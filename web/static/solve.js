@@ -1,272 +1,236 @@
 "use strict";
 
+import { Chessboard, COLOR, INPUT_EVENT_TYPE, BORDER_TYPE, FEN } from "/static/vendor/cm-chessboard/src/Chessboard.js";
+import { Markers, MARKER_TYPE } from "/static/vendor/cm-chessboard/src/extensions/markers/Markers.js";
+import { PromotionDialog } from "/static/vendor/cm-chessboard/src/extensions/promotion-dialog/PromotionDialog.js";
+
 const RUN_ID = document.body.dataset.runId;
 const $ = (s) => document.querySelector(s);
-const boardEl = $("#board");
+const enc = encodeURIComponent;
+const ASSETS = "/static/vendor/cm-chessboard/assets/";
+const CATEGORY = new URLSearchParams(location.search).get("category");
 
-const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
-
-let count = 0;
-let index = 0;
-let solved = 0;
-let attempted = 0;
-
-let fen = "";
-let side = "white";
-let legal = [];
+let count = 0, index = 0, solved = 0, attempted = 0;
+let side = "white", legal = [], order = [], submitting = false, currentFen = FEN.start;
+let replayToken = 0;
 const themes = {};
+const cur = () => order[index];
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function puzUrl(d, suffix) {
+  return d.source === "db"
+    ? `/api/db/puzzles/${enc(d.ref)}/${suffix}`
+    : `/api/runs/${enc(RUN_ID)}/puzzles/${d.ref}/${suffix}`;
+}
+const cmColor = () => (side === "white" ? COLOR.white : COLOR.black);
 
-// interaction state
-let selected = null;   // square highlighted for click-to-move / drag source
-let dragFrom = null;   // square the pointer pressed on (a movable piece)
-let moved = false;     // pointer moved far enough to count as a drag
-let ghost = null;
-let answered = false;
-let submitting = false;
-let lastMove = null;   // [from, to] to highlight after a move
+const board = new Chessboard($("#board"), {
+  position: FEN.empty,
+  assetsUrl: ASSETS,
+  style: { pieces: { file: "pieces/standard.svg" }, showCoordinates: true, borderType: BORDER_TYPE.frame },
+  extensions: [{ class: Markers, props: {} }, { class: PromotionDialog }],
+});
 
-// ---------- data ----------
+// ---------- data / flow ----------
 
 async function init() {
   const data = await api(`/api/runs/${enc(RUN_ID)}/puzzles`);
-  count = data.count;
   for (const it of data.items) themes[it.index] = it.theme;
-  if (!count) { $("#title").textContent = "No puzzles in this run"; boardEl.innerHTML = ""; return; }
+  order = data.items.map((it) => ({ source: "own", ref: it.index }));
+  if (CATEGORY) {
+    const lesson = await api(`/api/runs/${enc(RUN_ID)}/lessons/${enc(CATEGORY)}`);
+    order = lesson.drills || [];
+    renderConcept(lesson);
+  }
+  count = order.length;
+  if (!count) {
+    $("#title").textContent = CATEGORY ? "No drills from your own games here yet" : "No puzzles in this run";
+    return;
+  }
   load(0);
+}
+
+function renderConcept(lesson) {
+  const el = $("#concept");
+  if (!el) return;
+  const c = lesson.concept || {};
+  el.innerHTML =
+    `<h2>${esc(lesson.label)}</h2>` +
+    `<p><b>What happened:</b> ${esc(c.what || "")}</p>` +
+    `<p><b>Why:</b> ${esc(c.why || "")}</p>` +
+    `<p><b>The fix:</b> ${esc(c.fix || "")}</p>`;
+  el.classList.remove("hidden");
+  document.title = lesson.label + " · Lesson";
 }
 
 async function load(i) {
   index = i;
-  answered = false;
   submitting = false;
-  selected = dragFrom = null;
-  moved = false;
-  lastMove = null;
-  removeGhost();
+  replayToken += 1;
   $("#result").classList.add("hidden");
   $("#next").classList.add("hidden");
+  $("#done").classList.add("hidden");
   $("#hint").disabled = false;
   $("#skip").disabled = false;
-  $("#promo").classList.add("hidden");
-  const p = await api(`/api/runs/${enc(RUN_ID)}/puzzles/${index}/legal`);
-  fen = p.fen; side = p.side; legal = p.legal;
-  $("#title").textContent = `Puzzle ${index + 1} of ${count}`;
+  const d = cur();
+  const p = await api(puzUrl(d, "legal"));
+  side = p.side;
+  legal = p.legal;
+  currentFen = p.fen;
+  board.removeMarkers();
+  await board.setOrientation(cmColor());
+  await board.setPosition(p.fen, false);
+  board.enableMoveInput(inputHandler, cmColor());
+  $("#title").textContent = `${CATEGORY ? "Drill" : "Puzzle"} ${index + 1} of ${count}`;
   $("#turn").textContent = `You are ${side === "white" ? "White" : "Black"} to move`;
-  $("#theme").textContent = themes[index] || "—";
+  const themeText = d.source === "db"
+    ? (p.theme || "Lichess puzzle") + (p.rating ? ` · Lichess ${p.rating}` : "")
+    : themes[d.ref];
+  $("#theme").textContent = themeText || "—";
   $("#counter").textContent = `${index + 1} / ${count}`;
-  render();
 }
 
-// ---------- rendering ----------
-
-function fenToMap(f) {
-  const map = {};
-  const rows = f.split(" ")[0].split("/");
-  for (let i = 0; i < 8; i++) {
-    const rank = 8 - i;
-    let file = 0;
-    for (const ch of rows[i]) {
-      if (/\d/.test(ch)) file += parseInt(ch, 10);
-      else { map[FILES[file] + rank] = ch; file++; }
-    }
-  }
-  return map;
-}
-
-function render() {
-  const map = fenToMap(fen);
-  const ranks = side === "white" ? [8, 7, 6, 5, 4, 3, 2, 1] : [1, 2, 3, 4, 5, 6, 7, 8];
-  const files = side === "white" ? FILES : [...FILES].reverse();
-  boardEl.innerHTML = "";
-  for (const rank of ranks) {
-    for (const file of files) {
-      const sq = file + rank;
-      const cell = document.createElement("div");
-      const dark = (FILES.indexOf(file) + rank) % 2 === 1;
-      cell.className = "sq " + (dark ? "dark" : "light");
-      cell.dataset.square = sq;
-      if (!answered && movesFrom(sq).length) cell.classList.add("has-move");
-      const piece = map[sq];
-      if (piece) {
-        const img = document.createElement("img");
-        img.className = "piece-img";
-        img.draggable = false;
-        img.src = `/api/piece/${piece}`;
-        cell.appendChild(img);
-      }
-      boardEl.appendChild(cell);
-    }
-  }
-  paintHighlights();
-}
-
-function paintHighlights() {
-  const map = fenToMap(fen);
-  for (const cell of boardEl.querySelectorAll(".sq")) {
-    cell.classList.remove("sel", "target", "occupied", "last");
-    const sq = cell.dataset.square;
-    if (lastMove && (sq === lastMove[0] || sq === lastMove[1])) cell.classList.add("last");
-    if (sq === selected) cell.classList.add("sel");
-  }
-  if (selected) {
-    for (const u of legal.filter((u) => u.slice(0, 2) === selected)) {
-      const t = cellFor(u.slice(2, 4));
-      if (t) { t.classList.add("target"); if (map[u.slice(2, 4)]) t.classList.add("occupied"); }
-    }
-  }
-}
-
-const cellFor = (sq) => boardEl.querySelector(`.sq[data-square="${sq}"]`);
 const movesFrom = (sq) => legal.filter((u) => u.slice(0, 2) === sq);
-const between = (from, to) => legal.filter((u) => u.slice(0, 2) === from && u.slice(2, 4) === to);
 
-// ---------- pointer drag + click ----------
+// ---------- move input (drag + click via cm-chessboard) ----------
 
-let startX = 0, startY = 0;
-
-boardEl.addEventListener("pointerdown", (e) => {
-  if (answered || submitting) return;
-  const cell = e.target.closest(".sq");
-  if (!cell) return;
-  const sq = cell.dataset.square;
-  if (selected && sq !== selected && between(selected, sq).length) { doMove(selected, sq); return; }
-  if (movesFrom(sq).length) {
-    selected = sq; dragFrom = sq; moved = false;
-    startX = e.clientX; startY = e.clientY;
-    paintHighlights();
-    try { boardEl.setPointerCapture(e.pointerId); } catch {}
-  } else {
-    selected = null; paintHighlights();
+function inputHandler(event) {
+  if (event.type === INPUT_EVENT_TYPE.moveInputStarted) {
+    const targets = movesFrom(event.square).map((u) => u.slice(2, 4));
+    targets.forEach((sq) => board.addMarker(MARKER_TYPE.dot, sq));
+    return targets.length > 0;
   }
-});
-
-boardEl.addEventListener("pointermove", (e) => {
-  if (!dragFrom) return;
-  if (!moved && Math.hypot(e.clientX - startX, e.clientY - startY) > 4) { moved = true; makeGhost(); }
-  if (moved) positionGhost(e.clientX, e.clientY);
-});
-
-boardEl.addEventListener("pointerup", (e) => {
-  if (!dragFrom) return;
-  const from = dragFrom; dragFrom = null;
-  const wasMoved = moved; moved = false;
-  removeGhost();
-  if (!wasMoved) { selected = from; paintHighlights(); return; }  // a click, keep selection
-  let drop = null;
-  const el = document.elementFromPoint(e.clientX, e.clientY);
-  if (el) { const c = el.closest(".sq"); if (c) drop = c.dataset.square; }
-  if (drop && drop !== from && between(from, drop).length) doMove(from, drop);
-  else { selected = null; paintHighlights(); }
-});
-
-boardEl.addEventListener("pointercancel", () => { dragFrom = null; moved = false; removeGhost(); });
-
-function makeGhost() {
-  const sym = fenToMap(fen)[dragFrom];
-  if (!sym) return;
-  const rect = cellFor(dragFrom).getBoundingClientRect();
-  ghost = document.createElement("div");
-  ghost.className = "ghost";
-  ghost.style.width = rect.width + "px";
-  ghost.style.height = rect.height + "px";
-  const img = document.createElement("img");
-  img.src = `/api/piece/${sym}`;
-  ghost.appendChild(img);
-  document.body.appendChild(ghost);
-  const src = cellFor(dragFrom).querySelector("img");
-  if (src) src.classList.add("drag-src");
-}
-
-function positionGhost(x, y) {
-  if (!ghost) return;
-  ghost.style.left = x - ghost.offsetWidth / 2 + "px";
-  ghost.style.top = y - ghost.offsetHeight / 2 + "px";
-}
-
-function removeGhost() {
-  if (ghost) { ghost.remove(); ghost = null; }
-  boardEl.querySelectorAll(".drag-src").forEach((el) => el.classList.remove("drag-src"));
-}
-
-// ---------- moving / grading ----------
-
-function doMove(from, to) {
-  const candidates = between(from, to);
-  if (candidates.length === 0) { selected = null; paintHighlights(); return; }
-  if (candidates.length === 1) submit(candidates[0], from, to);
-  else choosePromotion(candidates, from, to);
-}
-
-function choosePromotion(candidates, from, to) {
-  const promo = $("#promo");
-  promo.innerHTML = "";
-  promo.classList.remove("hidden");
-  for (const uci of candidates) {
-    const letter = uci[4] || "q";
-    const sym = side === "white" ? letter.toUpperCase() : letter;
-    const btn = document.createElement("button");
-    const img = document.createElement("img");
-    img.src = `/api/piece/${sym}`;
-    btn.appendChild(img);
-    btn.addEventListener("click", () => { promo.classList.add("hidden"); submit(uci, from, to); });
-    promo.appendChild(btn);
+  if (event.type === INPUT_EVENT_TYPE.moveInputCanceled) {
+    board.removeMarkers(MARKER_TYPE.dot);
+    return;
   }
+  if (event.type === INPUT_EVENT_TYPE.validateMoveInput) {
+    board.removeMarkers(MARKER_TYPE.dot);
+    const base = event.squareFrom + event.squareTo;
+    const candidates = legal.filter((u) => u.slice(0, 4) === base);
+    if (!candidates.length) return false;
+    if (candidates.length > 1) {
+      board.showPromotionDialog(event.squareTo, cmColor(), (res) => {
+        if (res && res.piece) submit(base + res.piece.charAt(1));
+        else board.setPosition(currentFen, false);
+      });
+      return true;
+    }
+    submit(candidates[0]);
+    return true;
+  }
+  return true;
 }
 
-async function submit(uci, from, to) {
+// ---------- grading ----------
+
+async function submit(uci) {
   if (submitting) return;
   submitting = true;
-  selected = null;
+  board.disableMoveInput();
   $("#hint").disabled = true;
   $("#skip").disabled = true;
 
   let g;
   try {
-    g = await api(`/api/runs/${enc(RUN_ID)}/puzzles/${index}/grade`, { move: uci });
+    g = await api(puzUrl(cur(), "grade"), { move: uci });
   } catch (err) {
     submitting = false;
-    selected = from;
-    paintHighlights();
+    board.enableMoveInput(inputHandler, cmColor());
     $("#hint").disabled = false;
     $("#skip").disabled = false;
-    const box = $("#result");
-    box.className = "result no";
-    box.textContent = "Could not grade move: " + err.message;
-    box.classList.remove("hidden");
+    showResult("no", "Could not grade move: " + esc(err.message));
     return;
   }
 
-  answered = true;
   submitting = false;
-  lastMove = [from, to];
-  render();
   attempted += 1;
   if (g.correct) solved += 1;
   $("#solved").textContent = solved;
   $("#attempted").textContent = attempted;
   const box = $("#result");
   box.className = "result " + (g.correct ? "ok" : "no");
-  box.innerHTML = `<b>${g.correct ? "✓" : "✗"} ${esc(g.your_san)}</b> — ${esc(g.detail)}` +
-    `<br>Best: ${esc(g.best_san)} <span class="muted">(${esc(g.pv_san)})</span>`;
+  box.innerHTML =
+    `<div><b>${g.correct ? "✓" : "✗"} ${humanMoveHtml(g.your_san)}</b> — ${esc(g.detail)}</div>` +
+    `<div class="best-line">Best: ${humanMoveHtml(g.best_san)} ` +
+    `<button id="replay" class="btn small">▶ Show the line</button></div>` +
+    `<div class="muted pv">${esc(g.pv_san)}</div>`;
   box.classList.remove("hidden");
+  const replayBtn = document.getElementById("replay");
+  if (replayBtn) replayBtn.addEventListener("click", replayLine);
   if (index < count - 1) $("#next").classList.remove("hidden");
   else $("#done").classList.remove("hidden");
 }
 
-async function hint() {
-  const h = await api(`/api/runs/${enc(RUN_ID)}/puzzles/${index}/hint`);
-  if (!h.square) return;
-  selected = h.square;
-  paintHighlights();
+function showResult(cls, html) {
   const box = $("#result");
-  box.className = "result";
-  box.textContent = `Hint: move your ${h.piece} on ${h.square}.`;
+  box.className = "result " + cls;
+  box.innerHTML = html;
   box.classList.remove("hidden");
+}
+
+async function hint() {
+  const h = await api(puzUrl(cur(), "hint"));
+  if (!h.square) return;
+  board.removeMarkers(MARKER_TYPE.frame);
+  board.addMarker(MARKER_TYPE.frame, h.square);
+  showResult("", `Hint: move your ${esc(h.piece)} on ${esc(h.square)}.`);
+}
+
+// ---------- readable move text + line replay ----------
+
+const PIECE_NAME = { N: "Knight", B: "Bishop", R: "Rook", Q: "Queen", K: "King", P: "Pawn" };
+
+function humanizeSan(san) {
+  let s = String(san).replace(/[+#]$/, "");
+  const suffix = san.endsWith("#") ? ", checkmate" : san.endsWith("+") ? ", check" : "";
+  if (s === "O-O") return "Castles kingside" + suffix;
+  if (s === "O-O-O") return "Castles queenside" + suffix;
+  let promo = "";
+  const pm = s.match(/=([QRBN])$/);
+  if (pm) { promo = ", promotes to " + PIECE_NAME[pm[1]]; s = s.replace(/=([QRBN])$/, ""); }
+  const dest = s.slice(-2);
+  const piece = "NBRQK".includes(s[0]) ? PIECE_NAME[s[0]] : "Pawn";
+  const verb = s.includes("x") ? "takes" : "to";
+  return `${piece} ${verb} ${dest}${promo}${suffix}`;
+}
+
+function moveIconSym(san) {
+  const s = String(san).replace(/[+#]$/, "");
+  const letter = s.startsWith("O-O") ? "K" : "NBRQK".includes(s[0]) ? s[0] : "P";
+  return side === "white" ? letter : letter.toLowerCase();
+}
+
+function humanMoveHtml(san) {
+  return `<img class="ic" src="/api/piece/${moveIconSym(san)}" alt=""> ${esc(humanizeSan(san))}`;
+}
+
+async function replayLine() {
+  const token = ++replayToken;
+  const btn = document.getElementById("replay");
+  if (btn) btn.disabled = true;
+  let data;
+  try {
+    data = await api(puzUrl(cur(), "line"));
+  } catch {
+    return;
+  }
+  const steps = data.steps || [];
+  if (!steps.length) return;
+  board.disableMoveInput();
+  board.removeMarkers();
+  await board.setPosition(data.start_fen, true);
+  if (token !== replayToken) return;
+  for (let k = 0; k < steps.length; k++) {
+    await sleep(850);
+    if (token !== replayToken) return;
+    await board.setPosition(steps[k].fen, true);
+    if (token !== replayToken) return;
+    $("#turn").textContent = `${k + 1}. ${humanizeSan(steps[k].san)}`;
+  }
 }
 
 // ---------- helpers ----------
 
-const enc = encodeURIComponent;
 async function api(url, body) {
   const opts = body
     ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
@@ -276,6 +240,7 @@ async function api(url, body) {
   if (!res.ok) throw new Error(data.error || `request failed (${res.status})`);
   return data;
 }
+
 function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
