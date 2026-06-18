@@ -90,6 +90,10 @@ def create_app() -> Flask:
     def index():
         return render_template("index.html")
 
+    @app.get("/favicon.ico")
+    def favicon():
+        return Response(status=204)
+
     @app.get("/run/<run_id>/review")
     def review_page(run_id: str):
         resolve_run_dir(run_id)
@@ -173,6 +177,7 @@ def create_app() -> Flask:
                 "your_move_san": row.get("your_move_san", ""),
                 "loss_cp": row.get("loss_cp", ""),
                 "theme": row.get("theme", ""),
+                "category": row.get("category", ""),
                 "url": row.get("url", ""),
             }
             for i, row in enumerate(rows)

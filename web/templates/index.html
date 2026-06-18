@@ -7,14 +7,32 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 </head>
 <body>
-  <header class="topbar">
-    <h1>Chess Blunder Lab</h1>
-    <span id="engine-status" class="engine">checking engine…</span>
+  <header class="topbar app-header">
+    <div>
+      <h1>Chess Blunder Lab</h1>
+      <p class="topbar-sub">Personal tactics review from your own games</p>
+    </div>
+    <span id="engine-status" class="engine">Checking engine...</span>
   </header>
 
-  <main class="container">
-    <section class="card">
-      <h2>New analysis</h2>
+  <main class="container dashboard">
+    <section id="study-focus" class="study-focus">
+      <div class="focus-main">
+        <p class="eyebrow">Study Today</p>
+        <h2 id="focus-title">Loading latest run</h2>
+        <p id="focus-copy" class="muted">Finding your most useful drill.</p>
+        <div id="focus-actions" class="actions"></div>
+      </div>
+      <div id="focus-stats" class="focus-stats"></div>
+    </section>
+
+    <section class="panel analysis-panel">
+      <div class="section-head">
+        <div>
+          <h2>New Analysis</h2>
+          <p class="muted">Fetch recent games and rebuild your study set.</p>
+        </div>
+      </div>
       <form id="analyze-form" class="form-grid" autocomplete="off">
         <label>Chess.com username
           <input name="username" type="text" placeholder="e.g. your-username" required>
@@ -46,9 +64,14 @@
       </div>
     </section>
 
-    <section class="card">
-      <h2>Your runs</h2>
-      <div id="runs" class="runs">loading…</div>
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <h2>Recent Runs</h2>
+          <p class="muted">Open a previous report or keep drilling.</p>
+        </div>
+      </div>
+      <div id="runs" class="runs">loading...</div>
     </section>
   </main>
 

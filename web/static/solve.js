@@ -44,6 +44,7 @@ async function init() {
   count = order.length;
   if (!count) {
     $("#title").textContent = CATEGORY ? "No drills from your own games here yet" : "No puzzles in this run";
+    updateStats();
     return;
   }
   load(0);
@@ -54,10 +55,12 @@ function renderConcept(lesson) {
   if (!el) return;
   const c = lesson.concept || {};
   el.innerHTML =
-    `<h2>${esc(lesson.label)}</h2>` +
-    `<p><b>What happened:</b> ${esc(c.what || "")}</p>` +
-    `<p><b>Why:</b> ${esc(c.why || "")}</p>` +
-    `<p><b>The fix:</b> ${esc(c.fix || "")}</p>`;
+    `<div><p class="eyebrow">Lesson Focus</p><h2>${esc(lesson.label)}</h2></div>` +
+    `<div class="lesson-grid">` +
+    `<p><b>Pattern</b><span>${esc(c.what || "")}</span></p>` +
+    `<p><b>Cause</b><span>${esc(c.why || "")}</span></p>` +
+    `<p><b>Habit</b><span>${esc(c.fix || "")}</span></p>` +
+    `</div>`;
   el.classList.remove("hidden");
   document.title = lesson.label + " · Lesson";
 }
@@ -85,8 +88,9 @@ async function load(i) {
   const themeText = d.source === "db"
     ? (p.theme || "Lichess puzzle") + (p.rating ? ` · Lichess ${p.rating}` : "")
     : themes[d.ref];
-  $("#theme").textContent = themeText || "—";
+  $("#theme").textContent = themeText || "-";
   $("#counter").textContent = `${index + 1} / ${count}`;
+  updateStats();
 }
 
 const movesFrom = (sq) => legal.filter((u) => u.slice(0, 2) === sq);
@@ -145,12 +149,11 @@ async function submit(uci) {
   submitting = false;
   attempted += 1;
   if (g.correct) solved += 1;
-  $("#solved").textContent = solved;
-  $("#attempted").textContent = attempted;
+  updateStats();
   const box = $("#result");
   box.className = "result " + (g.correct ? "ok" : "no");
   box.innerHTML =
-    `<div><b>${g.correct ? "✓" : "✗"} ${humanMoveHtml(g.your_san)}</b> — ${esc(g.detail)}</div>` +
+    `<div><b>${g.correct ? "✓" : "✗"} ${humanMoveHtml(g.your_san)}</b>: ${esc(g.detail)}</div>` +
     `<div class="best-line">Best: ${humanMoveHtml(g.best_san)} ` +
     `<button id="replay" class="btn small">▶ Show the line</button></div>` +
     `<div class="muted pv">${esc(g.pv_san)}</div>`;
@@ -174,6 +177,13 @@ async function hint() {
   board.removeMarkers(MARKER_TYPE.frame);
   board.addMarker(MARKER_TYPE.frame, h.square);
   showResult("", `Hint: move your ${esc(h.piece)} on ${esc(h.square)}.`);
+}
+
+function updateStats() {
+  $("#solved").textContent = solved;
+  $("#attempted").textContent = attempted;
+  $("#remaining").textContent = Math.max(0, count - index - 1);
+  $("#accuracy").textContent = attempted ? `${Math.round((solved / attempted) * 100)}%` : "0%";
 }
 
 // ---------- readable move text + line replay ----------

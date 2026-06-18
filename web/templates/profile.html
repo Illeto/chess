@@ -7,17 +7,30 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 </head>
 <body data-run-id="{{ run_id }}">
-  <header class="topbar">
-    <h1><a href="/" class="back">←</a> Error Profile <span class="muted">{{ run_id }}</span></h1>
-    <span class="links">
-      <a class="btn" href="/run/{{ run_id }}/review">Review</a>
-      <a class="btn primary" href="/run/{{ run_id }}/solve">Solve</a>
-    </span>
+  <header class="topbar app-header">
+    <div>
+      <h1><a href="/" class="back">←</a> Error Profile</h1>
+      <p class="topbar-sub">{{ run_id }}</p>
+    </div>
+    <nav class="tabs">
+      <a class="tab active" href="/run/{{ run_id }}/profile">Profile</a>
+      <a class="tab" href="/run/{{ run_id }}/review">Review</a>
+      <a class="tab" href="/run/{{ run_id }}/solve">Solve</a>
+    </nav>
   </header>
 
-  <main class="container">
-    <p class="muted">Your mistakes grouped by type and ranked by total centipawns lost. Fix the top leak first.</p>
-    <div id="profile" class="profile-list">loading…</div>
+  <main class="container run-workspace">
+    <section id="profile-summary" class="study-focus compact">
+      <div class="focus-main">
+        <p class="eyebrow">Top Leak</p>
+        <h2 id="profile-title">Loading profile</h2>
+        <p id="profile-copy" class="muted">Ranking mistake patterns by impact.</p>
+        <div id="profile-actions" class="actions"></div>
+      </div>
+      <div id="profile-stats" class="focus-stats"></div>
+    </section>
+
+    <div id="profile" class="profile-list">loading...</div>
   </main>
 
   <script src="{{ url_for('static', filename='profile.js') }}"></script>

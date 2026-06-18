@@ -7,22 +7,39 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 </head>
 <body data-run-id="{{ run_id }}">
-  <header class="topbar">
-    <h1><a href="/" class="back">←</a> Review <span class="muted">{{ run_id }}</span></h1>
-    <a href="/run/{{ run_id }}/solve" class="btn">Solve →</a>
+  <header class="topbar app-header">
+    <div>
+      <h1><a href="/" class="back">←</a> Review</h1>
+      <p class="topbar-sub">{{ run_id }}</p>
+    </div>
+    <nav class="tabs">
+      <a class="tab" href="/run/{{ run_id }}/profile">Profile</a>
+      <a class="tab active" href="/run/{{ run_id }}/review">Review</a>
+      <a class="tab" href="/run/{{ run_id }}/solve">Solve</a>
+    </nav>
   </header>
 
-  <main class="container two-col">
+  <main class="container review-layout">
+    <aside class="panel finding-rail">
+      <div class="section-head tight">
+        <div>
+          <h2>Findings</h2>
+          <p id="review-total" class="muted">loading...</p>
+        </div>
+      </div>
+      <div id="finding-list" class="finding-list"></div>
+    </aside>
+
     <section class="board-col">
-      <div id="board">loading…</div>
+      <div id="board">loading...</div>
       <div class="nav">
-        <button id="prev" class="btn">◀ Prev</button>
+        <button id="prev" class="btn">Prev</button>
         <span id="counter" class="muted">–</span>
-        <button id="next" class="btn">Next ▶</button>
+        <button id="next" class="btn">Next</button>
       </div>
     </section>
 
-    <section class="card info">
+    <section class="panel info detail-panel">
       <h2 id="title">–</h2>
       <p id="note" class="coach"></p>
       <dl class="kv">
@@ -34,7 +51,7 @@
         <dt>Theme</dt><dd id="theme">–</dd>
       </dl>
       <p><a id="game-link" href="#" target="_blank" rel="noopener" class="hidden">View game on Chess.com ↗</a></p>
-      <p class="legend"><span class="dot green"></span> best move &nbsp; <span class="dot red"></span> your move</p>
+      <p class="legend"><span class="dot green"></span> best move <span class="dot red"></span> your move</p>
     </section>
   </main>
 
