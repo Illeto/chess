@@ -7,41 +7,24 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 </head>
 <body data-run-id="{{ run_id }}">
-  <header class="topbar app-header">
-    <div>
-      <h1><a href="/" class="back">←</a> Review</h1>
-      <p class="topbar-sub">{{ run_id }}</p>
-    </div>
-    <nav class="tabs">
-      <a class="tab" href="/run/{{ run_id }}/profile">Profile</a>
-      <a class="tab active" href="/run/{{ run_id }}/review">Review</a>
-      <a class="tab" href="/run/{{ run_id }}/solve">Solve</a>
-    </nav>
+  <header class="topbar">
+    <h1><a href="/" class="back">←</a> <span class="logo">♟</span> Review <span class="muted" style="font-weight:400;font-size:13px;">{{ run_id }}</span></h1>
+    <a href="/run/{{ run_id }}/solve" class="btn primary">Solve →</a>
   </header>
 
-  <main class="container review-layout">
-    <aside class="panel finding-rail">
-      <div class="section-head tight">
-        <div>
-          <h2>Findings</h2>
-          <p id="review-total" class="muted">loading...</p>
-        </div>
-      </div>
-      <div id="finding-list" class="finding-list"></div>
-    </aside>
-
+  <main class="container two-col">
     <section class="board-col">
-      <div id="board">loading...</div>
+      <div id="board">loading…</div>
       <div class="nav">
-        <button id="prev" class="btn">Prev</button>
-        <span id="counter" class="muted">–</span>
-        <button id="next" class="btn">Next</button>
+        <button id="prev" class="btn">← Prev</button>
+        <span id="counter" class="muted" style="font-size:13px;">–</span>
+        <button id="next" class="btn">Next →</button>
       </div>
     </section>
 
-    <section class="panel info detail-panel">
+    <section class="card info">
       <h2 id="title">–</h2>
-      <p id="note" class="coach"></p>
+      <p id="note" class="coach hidden"></p>
       <dl class="kv">
         <dt>Your move</dt><dd id="your-move">–</dd>
         <dt>Best move</dt><dd id="best-move">–</dd>
@@ -50,8 +33,11 @@
         <dt>Best line</dt><dd id="pv">–</dd>
         <dt>Theme</dt><dd id="theme">–</dd>
       </dl>
-      <p><a id="game-link" href="#" target="_blank" rel="noopener" class="hidden">View game on Chess.com ↗</a></p>
-      <p class="legend"><span class="dot green"></span> best move <span class="dot red"></span> your move</p>
+      <p style="margin:0 0 10px;"><a id="game-link" href="#" target="_blank" rel="noopener" class="hidden" style="color:var(--accent);font-size:13px;">View on Chess.com ↗</a></p>
+      <p class="legend">
+        <span><span class="dot green"></span> best move</span>
+        <span><span class="dot red"></span> your move</span>
+      </p>
     </section>
   </main>
 

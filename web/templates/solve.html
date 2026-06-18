@@ -11,50 +11,31 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='vendor/cm-chessboard/assets/extensions/promotion-dialog/promotion-dialog.css') }}">
 </head>
 <body data-run-id="{{ run_id }}">
-  <header class="topbar app-header">
-    <div>
-      <h1><a href="/" class="back">←</a> Solve</h1>
-      <p class="topbar-sub">{{ run_id }}</p>
-    </div>
-    <nav class="tabs">
-      <a class="tab" href="/run/{{ run_id }}/profile">Profile</a>
-      <a class="tab" href="/run/{{ run_id }}/review">Review</a>
-      <a class="tab active" href="/run/{{ run_id }}/solve">Solve</a>
-    </nav>
+  <header class="topbar">
+    <h1><a href="/" class="back">←</a> <span class="logo">♟</span> Solve <span class="muted" style="font-weight:400;font-size:13px;">{{ run_id }}</span></h1>
+    <a href="/run/{{ run_id }}/review" class="btn">Review →</a>
   </header>
 
-  <div class="container"><div id="concept" class="lesson-banner hidden"></div></div>
+  <div class="container"><div id="concept" class="card hidden"></div></div>
 
-  <main class="container solve-layout">
+  <main class="container two-col">
     <section class="board-col">
       <div id="board" class="cm-board"></div>
     </section>
 
-    <section class="panel info solve-panel">
-      <div class="solve-head">
-        <div>
-          <p id="counter" class="eyebrow">–</p>
-          <h2 id="title">–</h2>
-        </div>
-        <div class="score-ring">
-          <b id="accuracy">0%</b>
-          <span>accuracy</span>
-        </div>
-      </div>
-      <p id="turn" class="muted">–</p>
-      <div class="metric-strip">
-        <div><b id="solved">0</b><span>solved</span></div>
-        <div><b id="attempted">0</b><span>attempted</span></div>
-        <div><b id="remaining">–</b><span>left</span></div>
-      </div>
-      <p class="theme-line">Theme <span id="theme">–</span></p>
+    <section class="card info">
+      <h2 id="title">–</h2>
+      <p id="turn" class="muted" style="margin:0 0 8px;">–</p>
+      <p style="margin:0 0 12px;font-size:14px;color:var(--ink-2);">Theme: <span id="theme" style="color:var(--ink);">–</span></p>
       <div id="result" class="result hidden"></div>
       <div class="actions">
         <button id="hint" class="btn">Hint</button>
         <button id="skip" class="btn">Skip</button>
-        <button id="next" class="btn primary hidden">Next</button>
+        <button id="next" class="btn primary hidden">Next →</button>
       </div>
-      <p id="done" class="done hidden">All puzzles complete.</p>
+      <p class="score">Solved <b id="solved">0</b> / <span id="attempted">0</span> attempted
+        &nbsp;·&nbsp; <span id="counter" class="muted">–</span></p>
+      <p id="done" class="muted hidden" style="margin-top:14px;">All puzzles complete 🎉</p>
     </section>
   </main>
 
