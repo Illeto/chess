@@ -12,7 +12,7 @@
 </head>
 <body data-run-id="{{ run_id }}">
   <header class="topbar">
-    <h1><a href="/" class="back">←</a> Solve <span class="muted">{{ run_id }}</span></h1>
+    <h1><a href="/" class="back">←</a> <span class="logo">♟</span> Solve <span class="muted" style="font-weight:400;font-size:13px;">{{ run_id }}</span></h1>
     <a href="/run/{{ run_id }}/review" class="btn">Review →</a>
   </header>
 
@@ -25,17 +25,17 @@
 
     <section class="card info">
       <h2 id="title">–</h2>
-      <p id="turn" class="muted">–</p>
-      <p>Theme: <span id="theme">–</span></p>
+      <p id="turn" class="muted" style="margin:0 0 8px;">–</p>
+      <p style="margin:0 0 12px;font-size:14px;color:var(--ink-2);">Theme: <span id="theme" style="color:var(--ink);">–</span></p>
       <div id="result" class="result hidden"></div>
       <div class="actions">
         <button id="hint" class="btn">Hint</button>
         <button id="skip" class="btn">Skip</button>
-        <button id="next" class="btn primary hidden">Next ▶</button>
+        <button id="next" class="btn primary hidden">Next →</button>
       </div>
-      <p class="score">Solved <span id="solved">0</span>/<span id="attempted">0</span>
-        · <span id="counter" class="muted">–</span></p>
-      <p id="done" class="muted hidden">All puzzles complete 🎉</p>
+      <p class="score">Solved <b id="solved">0</b> / <span id="attempted">0</span> attempted
+        &nbsp;·&nbsp; <span id="counter" class="muted">–</span></p>
+      <p id="done" class="muted hidden" style="margin-top:14px;">All puzzles complete 🎉</p>
     </section>
   </main>
 

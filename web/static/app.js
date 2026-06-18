@@ -15,18 +15,25 @@ async function loadRuns() {
   const box = $("#runs");
   try {
     const { runs } = await (await fetch("/api/runs")).json();
-    if (!runs.length) { box.innerHTML = '<p class="muted">No runs yet. Start an analysis above.</p>'; return; }
+    if (!runs.length) { box.innerHTML = '<p class="muted" style="font-size:14px;">No runs yet. Start an analysis above.</p>'; return; }
     box.innerHTML = "";
     for (const r of runs) {
       const div = document.createElement("div");
       div.className = "run";
       div.innerHTML =
-        `<div class="meta"><b>${esc(r.username)}</b> <span class="muted">${esc(r.stamp)}</span>` +
-        `<div class="counts">${r.blunder} blunders · ${r.mistake} mistakes · ${r.inaccuracy} inaccuracies · ${r.puzzles} puzzles</div></div>` +
+        `<div class="meta">` +
+        `<b>${esc(r.username)}</b> <span class="muted" style="font-size:13px;font-weight:400;">${esc(r.stamp)}</span>` +
+        `<div class="counts">` +
+        `<span class="tag blunder">${r.blunder} blunders</span>` +
+        `<span class="tag mistake">${r.mistake} mistakes</span>` +
+        `<span class="tag inaccuracy">${r.inaccuracy} inaccuracies</span>` +
+        `<span class="tag puzzles">${r.puzzles} puzzles</span>` +
+        `</div></div>` +
         `<div class="links">` +
         `<a class="btn primary" href="/run/${encodeURIComponent(r.id)}/profile">Profile</a>` +
         `<a class="btn" href="/run/${encodeURIComponent(r.id)}/review">Review</a>` +
-        `<a class="btn" href="/run/${encodeURIComponent(r.id)}/solve">Solve</a></div>`;
+        `<a class="btn" href="/run/${encodeURIComponent(r.id)}/solve">Solve</a>` +
+        `</div>`;
       box.appendChild(div);
     }
   } catch { box.innerHTML = '<p class="error">Could not load runs.</p>'; }
