@@ -110,10 +110,17 @@ class WebAppTests(unittest.TestCase):
         self.assertTrue(detail["svg"].startswith("<svg"))
 
     def test_profile_endpoint(self) -> None:
-        prof = self.client.get(f"/api/runs/{self.run_id}/profile").get_json()["profile"]
+        body = self.client.get(f"/api/runs/{self.run_id}/profile").get_json()
+        prof = body["profile"]
         self.assertEqual(len(prof), 1)
         self.assertEqual(prof[0]["count"], 1)
+        self.assertIn("due_total", body)
+        self.assertIn("progress", prof[0])  # spaced-repetition fields attached
         self.assertEqual(self.client.get(f"/run/{self.run_id}/profile").status_code, 200)
+
+    def test_progress_endpoint(self) -> None:
+        body = self.client.get(f"/api/runs/{self.run_id}/progress").get_json()
+        self.assertIn("category", body)
 
     def test_db_puzzle_endpoints(self) -> None:
         from blab import puzzledb

@@ -437,9 +437,22 @@ body {
 .profile-card .body { flex: 1 1 auto; min-width: 0; }
 .profile-card .head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: baseline; }
 .profile-card .head b { font-size: 15px; font-weight: 600; }
-.profile-card .sub { font-size: 12px; margin-top: 5px; color: var(--ink-2); }
+.profile-card .sub { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; margin-top: 5px; color: var(--ink-2); }
 .profile-card .bar { height: 5px; background: var(--surface-3); border-radius: 99px; overflow: hidden; margin-top: 8px; }
 .profile-card .bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent-2), var(--accent)); border-radius: 99px; transition: width .6s ease; }
+
+/* Motif / progress chips on profile cards */
+.motifs { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 11px;
+}
 
 /* ─── Concept card (lesson drills) ──────────────────────────────────────── */
 #concept {

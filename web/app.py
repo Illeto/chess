@@ -20,6 +20,7 @@ from blab import aiwriter
 from blab import classify
 from blab import lessons as lessons_mod
 from blab import profile as error_profile
+from blab import progress
 from blab import puzzledb
 
 from . import engine_pool, jobs
@@ -154,7 +155,17 @@ def create_app() -> Flask:
     def api_profile(run_id: str):
         path = resolve_run_dir(run_id)
         rows = read_rows(path / "blunders.csv")
-        return jsonify(profile=error_profile.build_error_profile(rows))
+        prof = error_profile.build_error_profile(rows)
+        prog = progress.category_progress(_username(run_id))
+        empty = {"seen": 0, "mastered": 0, "due": 0, "attempts": 0, "correct": 0}
+        for group in prof:
+            group["progress"] = prog.get(group["category"], dict(empty))
+        return jsonify(profile=prof, due_total=sum(p["due"] for p in prog.values()))
+
+    @app.get("/api/runs/<run_id>/progress")
+    def api_progress(run_id: str):
+        resolve_run_dir(run_id)
+        return jsonify(category=progress.category_progress(_username(run_id)))
 
     @app.get("/api/runs/<run_id>/lessons/<category>")
     def api_lesson(run_id: str, category: str):
@@ -162,7 +173,18 @@ def create_app() -> Flask:
             abort(404)
         path = resolve_run_dir(run_id)
         rows = lab.load_puzzle_rows(path / "puzzles.csv")
-        return jsonify(lessons_mod.build_lesson(category, rows))
+        lesson = lessons_mod.build_lesson(category, rows)
+        due = progress.due_keys(_username(run_id))
+
+        def is_due(drill: dict) -> bool:
+            if drill["source"] != "own" or drill["ref"] >= len(rows):
+                return False
+            r = rows[drill["ref"]]
+            return progress.puzzle_key(r.get("fen", ""), r.get("best_move_uci", "")) in due
+
+        lesson["drills"].sort(key=lambda d: 0 if is_due(d) else 1)
+        lesson["due"] = sum(1 for d in lesson["drills"] if is_due(d))
+        return jsonify(lesson)
 
     @app.get("/api/runs/<run_id>/findings")
     def api_findings(run_id: str):
@@ -296,6 +318,16 @@ def create_app() -> Flask:
         correct, detail = engine_pool.grade(
             board, move, best_uci, GRADE_ACCEPT_CP, GRADE_DEPTH
         )
+        try:
+            progress.record_attempt(
+                _username(run_id),
+                row.get("fen", ""),
+                best_uci,
+                row.get("category", ""),
+                bool(correct),
+            )
+        except Exception:
+            pass
         return jsonify(
             correct=correct,
             detail=detail,
@@ -398,6 +430,11 @@ def create_app() -> Flask:
         return " ".join(s["san"] for s in _line_steps(board, pv_uci))
 
     return app
+
+
+def _username(run_id: str) -> str:
+    """Run ids are '<username>_<timestamp>'; progress is keyed by username."""
+    return run_id.partition("_")[0]
 
 
 def _as_int(value) -> Optional[int]:
