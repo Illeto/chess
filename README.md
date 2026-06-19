@@ -1,10 +1,12 @@
 # Chess Blunder Lab
 
-A small local CLI for turning your Chess.com games into:
+A small local tool that turns your Chess.com games into a personal tactics trainer:
 
-- a blunder/mistake/inaccuracy report
-- a `puzzles.csv` file for study
-- a `puzzles.pgn` file you can import into chess tools
+- a blunder/mistake/inaccuracy report, plus an **Error Profile** that names and ranks
+  your mistake *types* by impact (hung pieces, allowed forks, missed tactics, …)
+- a `puzzles.csv` / `puzzles.pgn` study set built from your own mistakes
+- a local browser GUI with per-category **lessons**, a real board, coaching notes,
+  and spaced-repetition review
 - a `raw_games.pgn` backup of the games that were analyzed
 
 Pass your Chess.com username with `--username` (it is required).
@@ -147,19 +149,45 @@ python3 -m pip install -r requirements-web.txt
 python3 blunder_lab.py gui
 ```
 
-This serves `http://127.0.0.1:5000` and opens your browser (use `--no-open`,
-`--host`, `--port` to change that). From there you can:
+This serves `http://127.0.0.1:8000` and opens your browser (use `--no-open`,
+`--host`, `--port` to change that; port 8000 avoids the macOS AirPlay Receiver,
+which squats on port 5000). From there you can:
 
 - **Run an analysis** from a form (username, months, max games, time class, depth)
   with a live progress bar — the run is written to `analysis/` like any CLI run.
 - **Review blunders** on a real board, with the engine's best move (green arrow)
   versus your move (red arrow), the eval swing, and a link back to the game.
-- **Solve** the run's puzzles on a click-to-move board; Stockfish grades each move
-  (good alternatives count), with hint, skip, and a running score.
+- **Solve** the run's puzzles on a drag-and-drop board (cm-chessboard); Stockfish
+  grades each move (good alternatives count), with hint, skip, a "show the line"
+  replay, and a running score.
+- **Error Profile** ranks your mistake types by impact, and each one opens a
+  **lesson**: a plain-English explanation (template, or AI-written with a key) plus a
+  drill deck of your own positions — topped up with matching Lichess puzzles, and
+  resurfacing weak patterns on a spaced-repetition schedule.
 
-It runs entirely on localhost, offline, with no third-party board assets. The
-server is authoritative: puzzle answers are never sent to the browser before you
-submit a move.
+It runs on localhost, offline by default (the Lichess puzzle top-up needs a one-time
+download; AI notes need a key, otherwise templates are used). The server is
+authoritative: puzzle answers are never sent to the browser before you submit a move.
+
+## Lessons, puzzle database, and AI notes (optional)
+
+Top up lessons with outside practice by building a local copy of the free Lichess
+puzzle database (one-time ~250 MB download → a few-hundred-MB local SQLite):
+
+```bash
+python3 -m pip install -r requirements-lessons.txt
+python3 blunder_lab.py install-puzzles            # filters to beginner ratings + matching themes
+```
+
+Coaching notes default to deterministic templates. For AI-written notes:
+
+```bash
+python3 -m pip install -r requirements-ai.txt
+export ANTHROPIC_API_KEY=...                       # claude-haiku-4-5, cached under ~/.blunder_lab/
+# or run a local model:  export BLAB_AI_PROVIDER=ollama
+```
+
+Your drill history is saved under `~/.blunder_lab/` so weak categories come due again over time.
 
 ## Development
 

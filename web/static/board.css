@@ -1,5 +1,7 @@
 /* Custom HTML chess board (solve page fallback + standalone use) */
-.cm-board { width: 100%; max-width: 480px; }
+.cm-board { width: 100%; max-width: 480px; aspect-ratio: 1 / 1; }
+.cm-board .cm-chessboard,
+.cm-board .cm-chessboard svg { width: 100%; height: 100%; display: block; }
 
 .board {
   width: 100%;

@@ -331,7 +331,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="launch the local web GUI (review blunders and solve in a browser)",
     )
     gui.add_argument("--host", default="127.0.0.1", help="bind host (default: 127.0.0.1)")
-    gui.add_argument("--port", type=int, default=5000, help="bind port (default: 5000)")
+    gui.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="bind port (default: 8000; avoids macOS AirPlay Receiver on 5000)",
+    )
     gui.add_argument(
         "--no-open",
         action="store_true",
